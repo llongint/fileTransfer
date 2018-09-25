@@ -21,11 +21,15 @@
 
 #include "my_socket.h"
 #include "my_signal.h"
+#include "my_login.h"
+#include "my_io.h"
 #include "format.h"
 
 const int maxMessageSize = 1024;
 
+#if PRINT
 static char sprint_buf[1024];
+#endif
 int print(char *fmt,...)
 {
     int n = 0;
@@ -62,6 +66,9 @@ int creatTcpServer(short port)
     addr.sin_addr.s_addr=htonl(INADDR_ANY);
     addr.sin_port=htons(port);
 
+    //printf("local %s,port:%d\n",inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
+    
+
     /* 3.绑定地址 */
     int err = bind(sock_fd,(struct sockaddr *)&addr,sizeof(addr));
     if(err==-1){
@@ -97,7 +104,8 @@ int client_handle(int sockfd)
         /* 1.对端发送FIN后，还向这个套接字写会收到 RST */
         if ( (count = read(sockfd, buf, Msg.m_msgLen)) < 0) {
             perror("read sockfd");
-            close(sockfd);    
+            if(sockfd > 2)
+                close(sockfd);    
             exit(-2);
         }
         /* 2.对方发送了FIN,服务器读会返回0，应答后处于CLOSE_WAIT状态 */
@@ -108,6 +116,7 @@ int client_handle(int sockfd)
         }
         /* 3.没有读到6个字节 */
         else if(count < 6){
+            printf("messages is less than 6\n");
             exit(-1);
         }
 
@@ -117,10 +126,12 @@ int client_handle(int sockfd)
         head_analyze(buf,&cmd_num,&packet_len);
         count = Read(sockfd, buf, packet_len);
         if(count < packet_len){
-            printf("read failed!\n");
+            print("cmd_num = %d,count = %d\n,packet_len = %d\n",cmd_num,count,packet_len);
+            printf("read failed!??\n");
             return -1;
         }
         delServerRecv(sockfd,cmd_num,packet_len,buf);
+        //system("pwd");
     }
 
     return 0;
@@ -135,11 +146,40 @@ int client_handle(int sockfd)
  */
 int delServerRecv(int sockfd,unsigned short cmd,unsigned int packet_len,char *buf)
 {
-    //signed int err = 0;
-    printf("cmd num = %d\n",cmd);
+    signed int err = 0;
+    //printf("cmd num = %d\n",cmd);
     switch (cmd){
         case e_msgDebug:
             printf("recv: %s",buf);
+            break;
+        case e_msgRegist:
+            //注册
+            print("regist request\n");
+            err = save_userData(serv_userDataFile,&g_servUserdata,buf);
+            freeback2client(sockfd,err);
+            break;
+        case e_msgLogin:
+            //登录
+            //printf("login request\n");
+            err = user_confirmation(sockfd,&g_servUserdata,buf);    //ref g_userdata
+            //printf("err = %d\n",err);
+            freeback2client(sockfd,err);
+            break;
+        case e_msgLs:
+            ls(sockfd,buf);
+            break;
+        case e_msgEndFile:
+            end_of_transf(sockfd,buf);
+            break;
+        case e_msgFileContent:
+            saveFileContent(sockfd,buf,packet_len);
+            break;
+        case e_msgSendFile:
+            /* 客户端的接收命令请求 */
+            handle_put(sockfd,buf);
+            break;
+        case e_msgGet:
+            server2clientFile(sockfd,buf);
             break;
         default:
             printf("unknow cmd\n");
@@ -163,4 +203,57 @@ ssize_t Read(int fd, void *ptr, size_t nbytes)
 		perror("read error");
     }
 	return(n);
+}
+/**
+ * @brief  给客户端发送反馈信息
+ * @note   
+ * @param  sockfd: 连接套接字
+ * @param  err: 错误吗
+ * @retval None
+ */
+void freeback2client(int sockfd,signed int err)
+{
+    char send_cmd[maxMessageSize];
+    char cmd[maxMessageSize];
+    switch(err){
+        case e_success:
+            snprintf(cmd,maxMessageSize,"%s","operate success\n");
+            break;
+        case e_userExist:
+            snprintf(cmd,maxMessageSize,"%s","the user name has already exist!\n");
+            break;
+        case e_wongIdent:
+            snprintf(cmd,maxMessageSize,"%s","the identification is wrong\n");
+            break;
+        case e_formatErr:
+            snprintf(cmd,maxMessageSize,"%s","format error\n");
+            break;
+        case e_UserOrPasswdWrong:
+            snprintf(cmd,maxMessageSize,"%s","user name or password is wrong\n");
+            break;
+        case e_loginSuccess:
+            snprintf(cmd,maxMessageSize,"%s","login success\n");
+            break;
+        case e_userOnline:
+            snprintf(cmd,maxMessageSize,"%s","user is online,you can't login again\n");
+            break;
+        case e_LogoutSuccess:
+            snprintf(cmd,maxMessageSize,"%s","Logout success\n");
+            break;
+        case e_sessionError:
+            snprintf(cmd,maxMessageSize,"%s","session error\n");
+            break;
+        case e_fileExist:
+            snprintf(cmd,maxMessageSize,"%s","file has already exist\n");
+            break;
+        case e_wongCharacter:
+            snprintf(cmd,maxMessageSize,"%s","include illegal character\n");
+            break;
+        default :
+            snprintf(cmd,maxMessageSize,"err = %d,%s",err,"????????????\n");
+            return ;//其他错误就啥也不输出
+    }
+    head_package(send_cmd,e_msgDebug,strlen(cmd)+1);    //加上结束符
+    snprintf((char *)send_cmd+Msg.m_msgLen,maxMessageSize-Msg.m_msgLen-1,"%s",cmd);
+    write(sockfd, send_cmd, Msg.m_msgLen+strlen(cmd)+1);//发送结束符 
 }

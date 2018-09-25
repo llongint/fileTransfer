@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 
 #include "my_socket.h"
-
+#include "my_io.h"
 
 int main(int argc,char *argv[])
 {
@@ -25,8 +25,12 @@ int main(int argc,char *argv[])
         exit(0);
     }
 
+    /* 初始化工作目录 */
+    if( file_init(g_server_work_path,serv_public_key,serv_private_key,&g_servUserdata,serv_userDataFile) == -1){
+        return -1; 
+    }
     pid_t pid;
-        
+
     /* 1.创建TCP服务 */
     int serv_fd=creatTcpServer(atoi(argv[1]));
     if(serv_fd==-1){
@@ -41,7 +45,6 @@ int main(int argc,char *argv[])
         exit(0);
     }
 
-    
     struct sockaddr_in cliAddr;
     bzero(&cliAddr,sizeof(cliAddr));
     socklen_t cliAddrlen=sizeof(cliAddr);
@@ -56,7 +59,9 @@ int main(int argc,char *argv[])
         if(pid == 0){       //子程序处理新的连接
             client_handle(cli_fd);
         }else if(pid>0){
-            close(cli_fd);  //父进程关闭引用描述符
+            if(cli_fd >2){
+                close(cli_fd);  //父进程关闭引用描述符
+            }
         }else{
             perror("fork");
             exit(0);

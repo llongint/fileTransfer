@@ -2,7 +2,7 @@
  * @Author: hzq 
  * @Date: 2018-09-11 18:08:18 
  * @Last Modified by: hzq
- * @Last Modified time: 2018-09-11 18:09:06
+ * @Last Modified time: 2018-09-12 23:38:29
  */
 #ifndef __FORMAT_H
 #define __FORMAT_H
@@ -34,9 +34,10 @@ enum MessageType{
     e_msgLs,                //Ls命令
     e_msgGet,               //文件请求命令
     e_msgFileHead,          //文件头信息
-    e_msgFileContent,       //文件内容
-    e_msgEndFile,           //文件传输完成
     e_msgSendFile,          //文件上传请求
+    e_msgfileOk,            //文件可以上传
+    e_msgFileContent,       //文件内容
+    e_msgEndFile,           //文件传输完成 
     e_msgFileLegal,         //文件名合法，可以上传文件
     e_msgFileNonExist,      //文件不存在
     e_msgPwd,               //PWD命令
@@ -51,7 +52,11 @@ enum ErrNum{
     e_UserOrPasswdWrong,    //用户名或密码错误
     e_loginSuccess,         //登录成功
     e_userOnline,           //用户已经在线，不能重复登录
+    e_sessionError,
     e_LogoutSuccess,
+    e_wongCharacter,        //非法字符
+    e_fileExist,
+    e_fileNotExist,         //文件不存在
     e_
 }errnum;
 

@@ -19,7 +19,7 @@
 #include "rsa.h"
 #include "format.h"
 #include "my_socket.h"
-
+#include "my_io.h"
 /**
  * Save some frequently used bigintegers (0 - 10) so they do not need to be repeatedly
  * created. Used as, NUMS[5] = bignum("5"), etc..
@@ -843,6 +843,8 @@ int *decodeMessage(int len, int bytes, bignum *cryptogram, bignum *exponent, big
 #ifndef NOPRINT
 			printf("%c", (char)(decoded[i*bytes + j]));
 #endif
+            lseek(g_cliUserdata->m_filefd,0,SEEK_END);
+            Write(g_cliUserdata->m_filefd,(char *)(&decoded[i*bytes + j]),1);
 		}
 	}
 	return decoded;
@@ -931,7 +933,11 @@ int save_key(const char *filename,bignum *e,bignum *n)
         uintToString(buf,n->data[i]);
         Write(fd,buf,sizeof(unsigned int));
     }
-    close(fd);
+    if(fd > 2){
+        close(fd);
+        fd = -1;
+    }
+    
     return 0;
 }
 /** 
@@ -946,9 +952,10 @@ int read_key(const char *filename,bignum *e,bignum *n)
 {
     int i = 0;
     char str[sizeof(unsigned int)];
-    /* 不存在则创建文件 */
+    
     int fd = open(filename,O_RDONLY);
     if(fd == -1){
+        system("pwd");
         perror("open file");
         return -1;
     }
@@ -965,6 +972,9 @@ int read_key(const char *filename,bignum *e,bignum *n)
         Read(fd,str,sizeof(unsigned int));
         stringToUint(str,&(n->data[i]));
     }
-    close(fd);
+    if(fd > 2){
+        close(fd);
+        fd = -1;
+    }
     return 0;
 }

@@ -1,6 +1,9 @@
 #ifndef __RSA_H
 #define __RSA_H
 
+//注释掉下面这行不打印调试信息
+#define NOPRINT
+
 
 //我们使用 索洛维-斯特拉森 算法测试首数字的精确度.20 在大多数情况下已经够大了 
 #define ACCURACY 20
@@ -53,16 +56,18 @@ void bignum_remainder(bignum* source, bignum *div, bignum* remainder);
 void bignum_imodulate(bignum* source, bignum* modulus);
 void bignum_divide(bignum* quotient, bignum* remainder, bignum* b1, bignum* b2);
 int bignum_less(bignum* b1, bignum* b2);
+int bignum_iszero(bignum* b);
 void encode(bignum* m, bignum* e, bignum* n, bignum* result);
 void decode(bignum* c, bignum* d, bignum* n, bignum* result);
 bignum *encodeMessage(int len, int bytes, char *message, bignum *exponent, bignum *modulus);
 int *decodeMessage(int len, int bytes, bignum *cryptogram, bignum *exponent, bignum *modulus);
 void bignum_fromstring(bignum* b, char* string);
 void bignum_fromint(bignum* b, unsigned int num);
-
+void bignum_deinit(bignum* b);
 int create_key(const char const *public_key,const char const *private_key);
 int save_key(const char *filename,bignum *e,bignum *n);
 int read_key(const char *filename,bignum *e,bignum *n);
+int readFile(FILE* fd, char** buffer, int bytes);
 /**
  * Save some frequently used bigintegers (0 - 10) so they do not need to be repeatedly
  * created. Used as, NUMS[5] = bignum("5"), etc..
